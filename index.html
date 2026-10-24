@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="ja"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="経営書講義">
+<meta name="theme-color" content="#0F0F0F">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+<style>[hidden]{display:none!important}*{box-sizing:border-box}</style>
+<title>経営書講義ライブラリ</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+/* Layout: 動画視聴ページの定番の形。上に動画（スクロールしても上に貼りつく）、その下にタイトルと操作、さらに下に「再生リスト」。
+   広い画面では左に動画と説明、右に再生リスト。 */
+:root{
+  --bg:#FFFFFF; --bg2:#F2F2F2; --bg3:#E5E5E5; --fg:#0F0F0F; --fg2:#606060; --line:#E5E5E5;
+  --red:#E62117; --chip:#F2F2F2; --chipOn:#0F0F0F; --chipOnFg:#FFFFFF; --sheet:#FFFFFF; --scrim:rgba(0,0,0,.45);
+  --sans:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F0F0F; --bg2:#272727; --bg3:#3F3F3F; --fg:#F1F1F1; --fg2:#AAAAAA; --line:#303030;
+  --chip:#272727; --chipOn:#F1F1F1; --chipOnFg:#0F0F0F; --sheet:#212121; --scrim:rgba(0,0,0,.6); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F0F0F; --bg2:#272727; --bg3:#3F3F3F; --fg:#F1F1F1; --fg2:#AAAAAA; --line:#303030;
+  --chip:#272727; --chipOn:#F1F1F1; --chipOnFg:#0F0F0F; --sheet:#212121; --scrim:rgba(0,0,0,.6); color-scheme:dark}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--sans);font-size:14px;line-height:1.5;margin:0}
+button{font:inherit;color:inherit}
+.page{max-width:1700px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:0}
+@media (min-width:1000px){
+  .page{grid-template-columns:minmax(0,1fr) 400px;gap:24px;padding:24px max(24px,env(safe-area-inset-right,0px)) 40px max(24px,env(safe-area-inset-left,0px))}
+  .info,.listwrap{padding-left:0!important;padding-right:0!important}
+  .stick{position:static!important}
+  .screen{border-radius:12px}
+}
+/* ── プレーヤー ── */
+.stick{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;background:#000}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:40;background:#000}
+.screen{position:relative;aspect-ratio:16/9;max-width:100%;background:#000;overflow:hidden;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+.screen video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+.audiocard{position:absolute;inset:0;display:grid;place-content:center;gap:8px;text-align:center;padding:24px;color:#fff;
+  background:radial-gradient(120% 90% at 20% 0%,#2a2a2a 0%,#0b0b0b 70%)}
+.audiocard img{width:min(44%,260px);aspect-ratio:16/9;border-radius:8px;justify-self:center;object-fit:cover;opacity:.9}
+.audiocard .ttl{font-weight:700;font-size:clamp(15px,2.2vw,22px)}
+.audiocard .sub{font-size:12.5px;color:#bbb}
+.tapzone{position:absolute;inset:0;display:grid;grid-template-columns:1fr 1fr 1fr;z-index:2}
+.ripple{position:absolute;top:0;bottom:0;width:38%;z-index:3;display:grid;place-items:center;color:#fff;font-size:13px;font-weight:700;
+  background:rgba(255,255,255,.14);opacity:0;pointer-events:none;transition:opacity .35s}
+.ripple.l{left:0;border-radius:0 50% 50% 0/0 50% 50% 0}
+.ripple.r{right:0;border-radius:50% 0 0 50%/50% 0 0 50%}
+.ripple.on{opacity:1;transition:none}
+.ripple span{display:grid;justify-items:center;gap:2px}
+.ripple svg{width:28px;height:28px;fill:#fff}
+.ui{position:absolute;inset:0;z-index:4;pointer-events:none;color:#fff;opacity:0;transition:opacity .2s;
+  background:rgba(0,0,0,.42)}
+.screen.showui .ui{opacity:1}
+.screen.showui .ui button,.screen.showui .ui input{pointer-events:auto}
+.uitop{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:8px;padding:8px 8px 0 14px}
+.uitop .t{flex:1;min-width:0;font-weight:500;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0}
+.screen.fs .uitop .t{opacity:1;font-size:17px}
+.ibtn{border:0;background:transparent;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;cursor:pointer;color:#fff}
+.ibtn svg{width:24px;height:24px;fill:currentColor}
+.ibtn:focus-visible,.cbtn:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.uimid{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:clamp(28px,12vw,96px)}
+.cbtn{border:0;background:rgba(0,0,0,.3);border-radius:50%;width:48px;height:48px;display:grid;place-items:center;cursor:pointer;color:#fff}
+.cbtn svg{width:30px;height:30px;fill:#fff}
+.cbtn.big{width:64px;height:64px}
+.cbtn.big svg{width:42px;height:42px}
+.cbtn[disabled]{opacity:.35}
+.uibot{position:absolute;left:0;right:0;bottom:6px;display:flex;align-items:center;padding:0 6px 0 14px}
+.time{font-size:12.5px;font-variant-numeric:tabular-nums;flex:1}
+.time b{font-weight:500}
+.time span{opacity:.75}
+/* 進行バー：常に動画の下端に細く出て、操作中は太くなる */
+.bar{position:absolute;left:0;right:0;bottom:0;height:3px;z-index:5;pointer-events:none}
+.bar i{display:block;height:100%;background:var(--red);width:0}
+.screen.showui .bar{opacity:0}
+.scrub{position:absolute;left:12px;right:12px;bottom:0;z-index:6;height:24px;display:flex;align-items:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.screen.showui .scrub{opacity:1;pointer-events:auto}
+.scrub input{width:100%;margin:0;height:24px;background:transparent;-webkit-appearance:none;appearance:none;cursor:pointer;--p:0%}
+.scrub input::-webkit-slider-runnable-track{height:3px;border-radius:2px;background:linear-gradient(to right,var(--red) var(--p),rgba(255,255,255,.35) var(--p))}
+.scrub input::-moz-range-track{height:3px;border-radius:2px;background:linear-gradient(to right,var(--red) var(--p),rgba(255,255,255,.35) var(--p))}
+.scrub input::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--red);margin-top:-5px;border:0}
+.scrub input::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--red);border:0}
+.screen.fs .scrub{bottom:56px;left:20px;right:20px}
+.screen.fs .uibot{bottom:16px;padding:0 12px 0 22px}
+.spin{position:absolute;inset:0;display:grid;place-items:center;z-index:3;pointer-events:none}
+.spin i{width:44px;height:44px;border-radius:50%;border:4px solid rgba(255,255,255,.25);border-top-color:#fff;animation:sp 0.9s linear infinite}
+.spin em{position:absolute;margin-top:76px;color:#fff;font-style:normal;font-size:12px;opacity:.85}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin i{animation:none}.ui,.ripple{transition:none}}
+/* 全画面 */
+.screen.fs{position:fixed;inset:0;z-index:60;aspect-ratio:auto;max-width:none;width:100%;height:100%;border-radius:0!important;
+  padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+html.fslock,html.fslock body{overflow:hidden}
+/* ── 動画の下 ── */
+.info{padding:12px max(12px,env(safe-area-inset-right,0px)) 4px max(12px,env(safe-area-inset-left,0px));display:grid;gap:10px}
+.info h1{margin:0;font-size:18px;line-height:1.4;font-weight:700;text-wrap:balance}
+@media (min-width:1000px){.info h1{font-size:20px}}
+.meta{color:var(--fg2);font-size:12.5px}
+.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -2px;padding:2px}
+.chips::-webkit-scrollbar{display:none}
+.chip{border:0;background:var(--chip);border-radius:999px;padding:0 14px;height:36px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer;font-weight:500;font-size:13.5px}
+.chip svg{width:20px;height:20px;fill:currentColor}
+.chip[aria-pressed="true"]{background:var(--chipOn);color:var(--chipOnFg)}
+.chip:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+.desc{background:var(--bg2);border-radius:12px;padding:10px 12px;font-size:13.5px;cursor:pointer;border:0;text-align:left;width:100%;white-space:pre-line}
+.desc b{display:block;font-weight:700;margin-bottom:2px}
+.desc .more{color:var(--fg2);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.desc.open .more{-webkit-line-clamp:unset}
+.status{margin:0;font-size:13px;padding:8px 12px;border-radius:10px;background:var(--bg2)}
+.status.err{border-left:3px solid var(--red)}
+/* ── 再生リスト ── */
+.listwrap{padding:4px max(12px,env(safe-area-inset-right,0px)) calc(28px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
+.plist{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.phead{padding:12px 14px 8px;display:grid;gap:2px;background:var(--bg2)}
+.phead h2{margin:0;font-size:16px;font-weight:700}
+.phead .s{color:var(--fg2);font-size:12px}
+.tabs{display:flex;gap:8px;padding:8px 14px 10px;background:var(--bg2);margin:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.tabs::-webkit-scrollbar{display:none}.tabs .chip{flex:0 0 auto}
+.items{list-style:none;margin:0;padding:6px 0}
+@media (min-width:1000px){.items{max-height:calc(100vh - 220px);overflow-y:auto}}
+.item{display:grid;grid-template-columns:24px 168px minmax(0,1fr);gap:8px;align-items:start;padding:6px 10px 6px 6px;cursor:pointer;border:0;background:none;width:100%;text-align:left}
+@media (max-width:420px){.item{grid-template-columns:22px 140px minmax(0,1fr)}}
+.item:hover{background:var(--bg2)}
+.item.cur{background:var(--bg3)}
+.item .idx{color:var(--fg2);font-size:12px;text-align:center;align-self:center;font-variant-numeric:tabular-nums}
+.item.cur .idx{color:var(--fg)}
+.thumb{position:relative;aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:var(--bg3);display:block}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb .dur{position:absolute;right:4px;bottom:4px;background:rgba(0,0,0,.8);color:#fff;font-size:11.5px;font-weight:500;padding:0 4px;border-radius:4px;font-variant-numeric:tabular-nums}
+.thumb .pr{position:absolute;left:0;bottom:0;height:3px;background:var(--red)}
+.thumb .pbg{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,.35)}
+.item .tx{min-width:0}
+.item .tt{font-size:14px;font-weight:500;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.item .pt{color:var(--fg2);font-size:12px;margin-top:2px}
+.item .dn{color:var(--fg2);font-size:11.5px}
+.item:focus-visible{outline:2px solid var(--fg);outline-offset:-2px}
+/* ── 設定シート（下から出る） ── */
+.scrim{position:fixed;inset:0;background:var(--scrim);z-index:80}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:81;background:var(--sheet);color:var(--fg);border-radius:12px 12px 0 0;
+  padding:8px 0 calc(10px + env(safe-area-inset-bottom,0px));max-width:560px;margin:0 auto}
+.sheet .grab{width:36px;height:4px;border-radius:2px;background:var(--bg3);margin:4px auto 6px}
+.srow{display:flex;align-items:center;gap:16px;width:100%;border:0;background:none;padding:12px max(18px,env(safe-area-inset-left,0px));text-align:left;cursor:pointer;font-size:15px}
+.srow svg{width:24px;height:24px;fill:currentColor;flex:none}
+.srow .v{margin-left:auto;color:var(--fg2);font-size:14px}
+.srow:hover{background:var(--bg2)}
+.srow.sel::after{content:"✓";margin-left:auto;font-weight:700}
+.shead{padding:6px 18px 6px;font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px}
+.shead button{border:0;background:none;width:36px;height:36px;border-radius:50%;cursor:pointer;display:grid;place-items:center}
+.shead svg{width:22px;height:22px;fill:currentColor}
+.sheet.fsmode{z-index:91}.scrim.fsmode{z-index:90}
+</style>
+
+<div class="page">
+  <div class="col-main">
+    <div class="stick">
+      <div class="screen" id="screen">
+        <video id="vid" playsinline muted preload="metadata" autopictureinpicture></video>
+        <div class="audiocard" id="audiocard" hidden>
+          <img id="acImg" alt="">
+          <div class="ttl" id="acTitle"></div>
+          <div class="sub">音声のみで再生中</div>
+        </div>
+        <div class="spin" id="spin" hidden><i></i><em id="spinTxt"></em></div>
+        <div class="tapzone" id="tapzone" aria-hidden="true"><div class="tz" data-side="-1"></div><div class="tz" data-side="0"></div><div class="tz" data-side="1"></div></div>
+        <div class="ripple l" id="ripL"><span><svg viewBox="0 0 24 24"><path d="M11 18V6l-8.5 6zm.5-6 8.5 6V6z"/></svg><b id="ripLt">10秒</b></span></div>
+        <div class="ripple r" id="ripR"><span><svg viewBox="0 0 24 24"><path d="M4 18l8.5-6L4 6zm9-12v12l8.5-6z"/></svg><b id="ripRt">10秒</b></span></div>
+        <div class="ui" id="ui">
+          <div class="uitop">
+            <span class="t" id="uiTitle"></span>
+            <button class="ibtn" id="bPip" aria-label="小窓で再生" hidden><svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8zm2-4H3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H3V5h18z"/></svg></button>
+            <button class="ibtn" id="bSettings" aria-label="設定"><svg viewBox="0 0 24 24"><path d="M19.1 12.9a7.3 7.3 0 0 0 0-1.8l2-1.6-1.9-3.3-2.4 1a7 7 0 0 0-1.6-.9L14.9 4h-3.8l-.3 2.3a7 7 0 0 0-1.6.9l-2.4-1-1.9 3.3 2 1.6a7.3 7.3 0 0 0 0 1.8l-2 1.6 1.9 3.3 2.4-1a7 7 0 0 0 1.6.9l.3 2.3h3.8l.3-2.3a7 7 0 0 0 1.6-.9l2.4 1 1.9-3.3zM13 15.3a3.3 3.3 0 1 1 0-6.6 3.3 3.3 0 0 1 0 6.6z" transform="translate(-1 0)"/></svg></button>
+          </div>
+          <div class="uimid">
+            <button class="cbtn" id="bPrev" aria-label="前の章"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
+            <button class="cbtn big" id="bPlay" aria-label="再生"><svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg></button>
+            <button class="cbtn" id="bNext" aria-label="次の章"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6zM16 6v12h2V6z"/></svg></button>
+          </div>
+          <div class="uibot">
+            <span class="time"><b id="tCur">0:00</b><span> / <span id="tDur">0:00</span></span></span>
+            <button class="ibtn" id="bRotate" aria-label="横向きに回転" hidden><svg viewBox="0 0 24 24"><path d="M16.5 2.5 15 4l1.6 1.6A7.5 7.5 0 0 0 4.5 12H6.6a5.5 5.5 0 0 1 8.6-4.5L13.6 9.1 15 10.5l3-3-1.5-1.5zm-9 19L9 20l-1.6-1.6A7.5 7.5 0 0 0 19.5 12h-2.1a5.5 5.5 0 0 1-8.6 4.5l1.6-1.6L9 13.5l-3 3z"/></svg></button>
+            <button class="ibtn" id="bFS" aria-label="全画面"><svg viewBox="0 0 24 24" id="fsIcon"><path d="M5 10V5h5v2H7v3zm9-5h5v5h-2V7h-3zM5 14h2v3h3v2H5zm12 3v-3h2v5h-5v-2z"/></svg></button>
+          </div>
+        </div>
+        <div class="scrub"><input type="range" id="seek" min="0" max="1000" value="0" aria-label="再生位置"></div>
+        <div class="bar" aria-hidden="true"><i id="barFill"></i></div>
+      </div>
+    </div>
+    <section class="info" aria-label="再生中の講義">
+      <h1 id="nowTitle">章を選んでください</h1>
+      <div class="meta" id="nowMeta"></div>
+      <div class="chips">
+        <button class="chip" id="cAudio" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0-9 9v6a3 3 0 0 0 3 3h2v-8H5v-1a7 7 0 0 1 14 0v1h-3v8h2a3 3 0 0 0 3-3v-6a9 9 0 0 0-9-9z"/></svg>音声のみ</button>
+        <button class="chip" id="cRate"><svg viewBox="0 0 24 24"><path d="M12 4a9 9 0 1 0 9 9h-2a7 7 0 1 1-7-7zm1 2v6.6l4.2 2.4 1-1.7-3.2-1.9V6z"/></svg><span id="cRateT">1.0×</span></button>
+        <button class="chip" id="cAuto" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M4 6h11v2H4zm0 5h11v2H4zm0 5h7v2H4zm12-1v6l5-3z"/></svg>自動再生</button>
+        <button class="chip" id="cPip" hidden><svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8zm2-4H3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H3V5h18z"/></svg>小窓で再生</button>
+        <button class="chip" id="cFS"><svg viewBox="0 0 24 24"><path d="M5 10V5h5v2H7v3zm9-5h5v5h-2V7h-3zM5 14h2v3h3v2H5zm12 3v-3h2v5h-5v-2z"/></svg>全画面</button>
+      </div>
+      <button class="desc" id="desc"><b id="descHead"></b><span class="more" id="descBody"></span></button>
+      <p class="status" id="status" role="status" hidden></p>
+    </section>
+  </div>
+  <aside class="listwrap" aria-label="再生リスト">
+    <div class="plist">
+      <div class="phead"><h2 id="plTitle"></h2><div class="s" id="plSub"></div></div>
+      <div class="tabs chips" id="tabs"></div>
+      <ul class="items" id="items"></ul>
+    </div>
+  </aside>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<div class="sheet" id="sheet" hidden role="dialog" aria-label="設定"></div>
+
+<script id="library" type="application/json">[{"id": "drucker-practice", "title": "ドラッカー名著集", "author": "P.F.ドラッカー", "volumes": [{"id": "jo", "name": "現代の経営［上］", "chapters": [{"n": 1, "title": "マネジメントの役割", "part": "序論　マネジメントの本質", "sub": "なぜマネジメントは、現代社会の中心的な存在になったのか", "thumb": "/lectures-gendai/t/ch01.jpg", "src": "/lectures-gendai/v/ch01.mp4", "asrc": "/lectures-gendai/a/ch01.mp3", "dur": 1242.5}, {"n": 2, "title": "マネジメントの仕事", "part": "序論　マネジメントの本質", "sub": "マネジメントとは、具体的に何をする仕事なのか", "thumb": "/lectures-gendai/t/ch02.jpg", "src": "/lectures-gendai/v/ch02.mp4", "asrc": "/lectures-gendai/a/ch02.mp3", "dur": 1487.4}, {"n": 3, "title": "マネジメントの挑戦", "part": "序論　マネジメントの本質", "sub": "新しい技術の時代に、マネジメントには何が求められるのか", "thumb": "/lectures-gendai/t/ch03.jpg", "src": "/lectures-gendai/v/ch03.mp4", "asrc": "/lectures-gendai/a/ch03.mp3", "dur": 1474.6}, {"n": 4, "title": "シアーズ物語", "part": "第1部　事業のマネジメント", "sub": "一つの会社の歴史から、事業とは何かを読み解く", "thumb": "/lectures-gendai/t/ch04.jpg", "src": "/lectures-gendai/v/ch04.mp4", "asrc": "/lectures-gendai/a/ch04.mp3", "dur": 1460.3}, {"n": 5, "title": "事業とは何か", "part": "第1部　事業のマネジメント", "sub": "企業は何のために存在し、何によって成り立っているのか", "thumb": "/lectures-gendai/t/ch05.jpg", "src": "/lectures-gendai/v/ch05.mp4", "asrc": "/lectures-gendai/a/ch05.mp3", "dur": 1462.6}, {"n": 6, "title": "われわれの事業は何か", "part": "第1部　事業のマネジメント", "sub": "わかりきっているはずの問いに、なぜ答えられないのか", "thumb": "/lectures-gendai/t/ch06.jpg", "src": "/lectures-gendai/v/ch06.mp4", "asrc": "/lectures-gendai/a/ch06.mp3", "dur": 1426.0}, {"n": 7, "title": "事業の目標", "part": "第1部　事業のマネジメント", "sub": "事業は、何を目標にして、どう舵を取ればよいのか", "thumb": "/lectures-gendai/t/ch07.jpg", "src": "/lectures-gendai/v/ch07.mp4", "asrc": "/lectures-gendai/a/ch07.mp3", "dur": 1469.2}, {"n": 8, "title": "明日を予期するための手法", "part": "第1部　事業のマネジメント", "sub": "未来が分からないなかで、今日の決定をどう下せばよいのか", "thumb": "/lectures-gendai/t/ch08.jpg", "src": "/lectures-gendai/v/ch08.mp4", "asrc": "/lectures-gendai/a/ch08.mp3", "dur": 1466.7}, {"n": 9, "title": "生産の原理", "part": "第1部　事業のマネジメント", "sub": "つくり方の選択は、なぜ経営全体を左右するのか", "thumb": "/lectures-gendai/t/ch09.jpg", "src": "/lectures-gendai/v/ch09.mp4", "asrc": "/lectures-gendai/a/ch09.mp3", "dur": 1477.1}, {"n": 10, "title": "フォード物語", "part": "第2部　経営管理者のマネジメント", "sub": "経営管理者のいない巨大企業は、なぜ衰えたのか", "thumb": "/lectures-gendai/t/ch10.jpg", "src": "/lectures-gendai/v/ch10.mp4", "asrc": "/lectures-gendai/a/ch10.mp3", "dur": 1455.9}, {"n": 11, "title": "自己管理による目標管理", "part": "第2部　経営管理者のマネジメント", "sub": "経営管理者を、上からの命令ではなく、目標と自己管理で動かせるか", "thumb": "/lectures-gendai/t/ch11.jpg", "src": "/lectures-gendai/v/ch11.mp4", "asrc": "/lectures-gendai/a/ch11.mp3", "dur": 1444.8}, {"n": 12, "title": "経営管理者は何をなすべきか", "part": "第2部　経営管理者のマネジメント", "sub": "経営管理者の仕事は、何によって決められるべきなのか", "thumb": "/lectures-gendai/t/ch12.jpg", "src": "/lectures-gendai/v/ch12.mp4", "asrc": "/lectures-gendai/a/ch12.mp3", "dur": 1467.1}, {"n": 13, "title": "組織の文化", "part": "第2部　経営管理者のマネジメント", "sub": "普通の人に、普通以上の成果をあげさせる組織とは何か", "thumb": "/lectures-gendai/t/ch13.jpg", "src": "/lectures-gendai/v/ch13.mp4", "asrc": "/lectures-gendai/a/ch13.mp3", "dur": 1462.2}, {"n": 14, "title": "CEOと取締役会", "part": "第2部　経営管理者のマネジメント", "sub": "会社のトップの仕事は、本当に一人で担えるものなのか", "thumb": "/lectures-gendai/t/ch14.jpg", "src": "/lectures-gendai/v/ch14.mp4", "asrc": "/lectures-gendai/a/ch14.mp3", "dur": 1454.6}, {"n": 15, "title": "経営管理者の育成", "part": "第2部　経営管理者のマネジメント", "sub": "明日の経営管理者は、誰が、どのように育てるのか", "thumb": "/lectures-gendai/t/ch15.jpg", "src": "/lectures-gendai/v/ch15.mp4", "asrc": "/lectures-gendai/a/ch15.mp3", "dur": 1486.1}]}, {"id": "ge", "name": "現代の経営［下］", "chapters": [{"n": 16, "title": "組織の構造を選ぶ", "part": "第3部　マネジメントの組織構造", "sub": "組織の形は、組織図からではなく、何から考え始めるべきなのか", "thumb": "/lectures-gendai/t/ch16.jpg", "src": "/lectures-gendai/v/ch16.mp4", "asrc": "/lectures-gendai/a/ch16.mp3", "dur": 1489.5}, {"n": 17, "title": "組織の構造をつくる", "part": "第3部　マネジメントの組織構造", "sub": "組織は、どんな原理で組み立てればよいのか", "thumb": "/lectures-gendai/t/ch17.jpg", "src": "/lectures-gendai/v/ch17.mp4", "asrc": "/lectures-gendai/a/ch17.mp3", "dur": 1546.4}, {"n": 18, "title": "小企業、大企業、成長企業", "part": "第3部　マネジメントの組織構造", "sub": "会社の大きさが変わると、マネジメントの何が変わるのか", "thumb": "/lectures-gendai/t/ch18.jpg", "src": "/lectures-gendai/v/ch18.mp4", "asrc": "/lectures-gendai/a/ch18.mp3", "dur": 1470.2}, {"n": 19, "title": "IBM物語", "part": "第4部　人と仕事のマネジメント", "sub": "働く人は、なぜ最も活用されていない資源なのか", "thumb": "/lectures-gendai/t/ch19.jpg", "src": "/lectures-gendai/v/ch19.mp4", "asrc": "/lectures-gendai/a/ch19.mp3", "dur": 1469.5}, {"n": 20, "title": "人を雇うということ", "part": "第4部　人と仕事のマネジメント", "sub": "企業は、働く人の何を雇っているのか", "thumb": "/lectures-gendai/t/ch20.jpg", "src": "/lectures-gendai/v/ch20.mp4", "asrc": "/lectures-gendai/a/ch20.mp3", "dur": 1484.8}, {"n": 21, "title": "人事管理は破綻したか", "part": "第4部　人と仕事のマネジメント", "sub": "人を生かすための理論は、なぜ行き詰まってしまったのか", "thumb": "/lectures-gendai/t/ch21.jpg", "src": "/lectures-gendai/v/ch21.mp4", "asrc": "/lectures-gendai/a/ch21.mp3", "dur": 1499.7}, {"n": 22, "title": "最高の仕事のための人間組織", "part": "第4部　人と仕事のマネジメント", "sub": "人が最も力を発揮できるように、仕事をどう組み立てるか", "thumb": "/lectures-gendai/t/ch22.jpg", "src": "/lectures-gendai/v/ch22.mp4", "asrc": "/lectures-gendai/a/ch22.mp3", "dur": 1462.5}, {"n": 23, "title": "最高の仕事への動機づけ", "part": "第4部　人と仕事のマネジメント", "sub": "人は、何によって最高の仕事をしようと思うのか", "thumb": "/lectures-gendai/t/ch23.jpg", "src": "/lectures-gendai/v/ch23.mp4", "asrc": "/lectures-gendai/a/ch23.mp3", "dur": 1488.6}, {"n": 24, "title": "経済的次元の問題", "part": "第4部　人と仕事のマネジメント", "sub": "お金で、人は本当に動くのか", "thumb": "/lectures-gendai/t/ch24.jpg", "src": "/lectures-gendai/v/ch24.mp4", "asrc": "/lectures-gendai/a/ch24.mp3", "dur": 1494.5}, {"n": 25, "title": "現場管理者", "part": "第4部　人と仕事のマネジメント", "sub": "現場をまとめる人は、本当にマネジメントの一員として扱われているか", "thumb": "/lectures-gendai/t/ch25.jpg", "src": "/lectures-gendai/v/ch25.mp4", "asrc": "/lectures-gendai/a/ch25.mp3", "dur": 1512.8}, {"n": 26, "title": "専門職", "part": "第4部　人と仕事のマネジメント", "sub": "人を管理しない専門家を、組織はどう位置づけ、どう生かすのか", "thumb": "/lectures-gendai/t/ch26.jpg", "src": "/lectures-gendai/v/ch26.mp4", "asrc": "/lectures-gendai/a/ch26.mp3", "dur": 1544.7}, {"n": 27, "title": "優れた経営管理者の要件", "part": "第5部　経営管理者であることの意味", "sub": "経営管理者を、経営管理者たらしめるものは何か", "thumb": "/lectures-gendai/t/ch27.jpg", "src": "/lectures-gendai/v/ch27.mp4", "asrc": "/lectures-gendai/a/ch27.mp3", "dur": 1491.1}, {"n": 28, "title": "意思決定を行うこと", "part": "第5部　経営管理者であることの意味", "sub": "正しい答えを探す前に、経営管理者は何を見つけるべきか", "thumb": "/lectures-gendai/t/ch28.jpg", "src": "/lectures-gendai/v/ch28.mp4", "asrc": "/lectures-gendai/a/ch28.mp3", "dur": 1501.5}, {"n": 29, "title": "明日の経営管理者", "part": "第5部　経営管理者であることの意味", "sub": "要求が増え続けるなかで、普通の人は経営管理者の仕事を担えるのか", "thumb": "/lectures-gendai/t/ch29.jpg", "src": "/lectures-gendai/v/ch29.mp4", "asrc": "/lectures-gendai/a/ch29.mp3", "dur": 1477.2}, {"n": 30, "title": "マネジメントの責任", "part": "本全体の締めくくり", "sub": "マネジメントは、企業の外にいる社会に対して、何を負っているのか", "label": "結論", "thumb": "/lectures-gendai/t/ch30.jpg", "src": "/lectures-gendai/v/ch30.mp4", "asrc": "/lectures-gendai/a/ch30.mp3", "dur": 1480.4}]}]}]</script>
+<script id="seed" type="application/json">{"autoNext": true, "done": {"drucker-practice/jo/10": true, "drucker-practice/jo/11": true, "drucker-practice/jo/12": true, "drucker-practice/jo/13": true}, "last": {"drucker-practice": "drucker-practice/jo/14"}, "lastAt": {"drucker-practice": 1792854468718}, "mode": "video", "pos": {"drucker-practice/jo/10": 0, "drucker-practice/jo/11": 0, "drucker-practice/jo/12": 0, "drucker-practice/jo/13": 0, "drucker-practice/jo/14": 43.95600525044357, "drucker-practice/jo/9": 1475.2574032765488}, "posAt": {"drucker-practice/jo/10": 1792842361612, "drucker-practice/jo/11": 1792843889891, "drucker-practice/jo/12": 1792851110789, "drucker-practice/jo/13": 1792854468718, "drucker-practice/jo/14": 1792854498535, "drucker-practice/jo/9": 1792840746704}, "rate": 1.5, "savedAt": 1792854501570, "v": 2}</script>
+<script>
+(function(){
+  const LIB = JSON.parse(document.getElementById('library').textContent);
+  const $ = id => document.getElementById(id);
+  const vid = $('vid'), aud = new Audio(), screenEl = $('screen');
+  aud.preload = 'auto';
+  vid.muted = true; vid.defaultMuted = true;
+  const RATES = [0.75, 1, 1.25, 1.5, 1.75, 2];
+  const store = {
+    get(k, d){ try{ const v = localStorage.getItem('lec:'+k); return v === null ? d : JSON.parse(v); }catch(e){ return d; } },
+    set(k, v){ try{ localStorage.setItem('lec:'+k, JSON.stringify(v)); }catch(e){} }
+  };
+  let bookIdx = Math.min(store.get('book', 0), LIB.length - 1);
+  let mode = store.get('mode', 'video');
+  let rate = store.get('rate', 1);
+  let autoNext = store.get('autoNext', true);
+  let pos = store.get('pos', {});
+  let done = store.get('done', {});
+  let posAt = store.get('posAt', {});    // 章ごとの最終更新時刻（端末とクラウドの統合用）
+  let lastAt = store.get('lastAt', {});  // 本ごとの「最後に見た章」の更新時刻
+  let touched = false;                   // この起動でユーザーが再生操作をしたか
+  let curKey = null, seeking = false, loadSeq = 0;
+  let volTab = null;
+
+  const book = () => LIB[bookIdx];
+  const flat = () => book().volumes.flatMap(v => v.chapters.map(c => Object.assign({vol: v}, c)));
+  const keyOf = c => book().id + '/' + c.vol.id + '/' + c.n;
+  const byKey = k => flat().find(c => keyOf(c) === k);
+  const playable = () => flat().filter(c => c.src);
+  const fmt = s => { s = Math.max(0, Math.floor(s||0)); const h = Math.floor(s/3600), m = Math.floor(s%3600/60), x = String(s%60).padStart(2,'0'); return h ? h+':'+String(m).padStart(2,'0')+':'+x : m+':'+x; };
+  const label = c => c.label || ('第' + c.n + '章');
+  const rateText = r => (r % 1 ? String(r) : r.toFixed(1)) + '×';
+  function say(t, err){ const el = $('status'); el.textContent = t; el.hidden = !t; el.classList.toggle('err', !!err); }
+  function spinner(on, txt){ $('spin').hidden = !on; $('spinTxt').textContent = txt || ''; }
+  function playErr(e){
+    const n = e && e.name;
+    if (n === 'AbortError') return;
+    if (n === 'NotAllowedError') { say('再生ボタンをもう一度押してください。', true); return; }
+    say('再生を始められませんでした（' + (n || '') + '）', true);
+  }
+
+  // ── 再生リスト ─────────────────────────────────────────
+  function renderList(){
+    const b = book();
+    const ready = playable();
+    const doneN = ready.filter(c => done[keyOf(c)]).length;
+    $('plTitle').textContent = b.title + '　講義';
+    $('plSub').textContent = '全' + ready.length + '本 ・ 視聴済み ' + doneN + ' 本';
+    const tabs = $('tabs'); tabs.innerHTML = '';
+    if (!volTab) { const c = curKey && byKey(curKey); volTab = c ? c.vol.id : b.volumes[0].id; }
+    b.volumes.forEach(v => {
+      const t = document.createElement('button'); t.className = 'chip'; t.textContent = v.name;
+      t.setAttribute('aria-pressed', v.id === volTab);
+      t.onclick = () => { volTab = v.id; renderList(); };
+      tabs.appendChild(t);
+    });
+    const ul = $('items'); ul.innerHTML = '';
+    const v = b.volumes.find(x => x.id === volTab) || b.volumes[0];
+    v.chapters.forEach((c0, i) => {
+      const c = Object.assign({vol: v}, c0), k = keyOf(c);
+      const li = document.createElement('li');
+      const bt = document.createElement('button'); bt.className = 'item'; bt.dataset.key = k;
+      bt.innerHTML = '<span class="idx"></span><span class="thumb"><img alt="" loading="lazy"><span class="pbg"></span><span class="pr"></span><span class="dur"></span></span><span class="tx"><span class="tt"></span><span class="pt" style="display:block"></span><span class="dn" style="display:block"></span></span>';
+      bt.querySelector('.idx').textContent = (k === curKey) ? '▶' : String(i + 1);
+      if (c.thumb) bt.querySelector('img').src = c.thumb; else bt.querySelector('img').remove();
+      bt.querySelector('.dur').textContent = c.dur ? fmt(c.dur) : '準備中';
+      bt.querySelector('.tt').textContent = label(c) + '　' + c.title;
+      bt.querySelector('.pt').textContent = c.part;
+      const p = done[k] ? 1 : Math.min(1, (pos[k]||0) / (c.dur||1));
+      bt.querySelector('.pr').style.width = (p*100) + '%';
+      if (p <= 0) { bt.querySelector('.pr').remove(); bt.querySelector('.pbg').remove(); }
+      bt.querySelector('.dn').textContent = done[k] ? '視聴済み' : (pos[k] > 5 ? '続きから ' + fmt(pos[k]) : '');
+      if (k === curKey) { bt.classList.add('cur'); bt.setAttribute('aria-current', 'true'); }
+      if (c.src) bt.onclick = () => load(k, true); else bt.disabled = true;
+      li.appendChild(bt); ul.appendChild(li);
+    });
+  }
+  function scrollListToCurrent(){
+    const el = document.querySelector('.item.cur');
+    if (el && window.matchMedia('(min-width:1000px)').matches) el.scrollIntoView({block: 'nearest'});
+  }
+
+  function setMeta(c){
+    const t = label(c) + '　' + c.title;
+    $('nowTitle').textContent = t;
+    $('uiTitle').textContent = t;
+    $('acTitle').textContent = t;
+    if (c.thumb) $('acImg').src = c.thumb;
+    $('nowMeta').textContent = book().author + '『' + c.vol.name + '』 ・ ' + c.part + (c.dur ? ' ・ ' + Math.round(c.dur / 60) + '分' : '');
+    $('descHead').textContent = 'この章の問い';
+    $('descBody').textContent = (c.sub || '') + '\nP.F.ドラッカー『' + c.vol.name + '』（上田惇生 訳、ダイヤモンド社）をもとにした独自の要約・解説です。ナレーション：VOICEVOX:青山龍星';
+    if ('mediaSession' in navigator) {
+      try { navigator.mediaSession.metadata = new MediaMetadata({ title: t, artist: book().author + '『' + c.vol.name + '』講義', album: c.vol.name,
+        artwork: c.thumb ? [{src: new URL(c.thumb, location.href).href, sizes: '480x270', type: 'image/jpeg'}] : [] }); } catch(e){}
+    }
+  }
+
+  // ── 音声と映像 ─────────────────────────────────────────
+  // 音は常に音声ファイルから。映像は無音で音声に追従（画面を消しても音声は続く）。
+  // 音声は章ごとに端末へ丸ごと読み込んでから再生し、途中からの再生位置がずれないようにする。
+  const audioCache = new Map();
+  function fetchAudio(asrc){
+    if (audioCache.has(asrc)) return audioCache.get(asrc);
+    const pr = (async () => {
+      const r = await fetch(asrc);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const total = +r.headers.get('content-length') || 0;
+      const parts = []; let got = 0;
+      if (r.body && r.body.getReader) {
+        const rd = r.body.getReader();
+        for (;;) { const {done: d, value} = await rd.read(); if (d) break; parts.push(value); got += value.length; if (total) pr.progress = got / total; }
+      } else parts.push(new Uint8Array(await r.arrayBuffer()));
+      pr.progress = 1;
+      return URL.createObjectURL(new Blob(parts, {type: asrc.endsWith('.mp3') ? 'audio/mpeg' : 'audio/mp4'}));
+    })();
+    pr.progress = 0;
+    pr.catch(() => audioCache.delete(asrc));
+    audioCache.set(asrc, pr);
+    while (audioCache.size > 3) { const [k0, p0] = audioCache.entries().next().value; audioCache.delete(k0); p0.then(u => URL.revokeObjectURL(u)).catch(()=>{}); }
+    return pr;
+  }
+  function neighbor(k, d){ const l = playable(); const i = l.findIndex(c => keyOf(c) === k); return l[i + d] || null; }
+
+  let pip = false, nativeFS = false, internalSeek = 0, internalPause = 0;
+  const ext = () => pip || nativeFS;   // 小窓・iPhone標準の全画面など、ページの外で映像が出ているとき
+  function syncVideo(force){
+    if (mode !== 'video' || !vid.getAttribute('src') || (document.hidden && !ext()) || aud.dataset.ready !== '1') return;
+    if (vid.readyState >= 1 && (force || Math.abs(vid.currentTime - aud.currentTime) > 0.4)) { try { internalSeek = Date.now(); vid.currentTime = aud.currentTime; } catch(e){} }
+    vid.playbackRate = rate;
+    if (aud.paused) { if (!vid.paused) { internalPause = Date.now(); vid.pause(); } } else if (vid.paused) vid.play().catch(()=>{});
+  }
+
+  function load(k, autoplay, at){
+    const c = byKey(k); if (!c || !c.src) return;
+    if (curKey && aud.dataset.key === curKey && aud.dataset.ready === '1' && aud.currentTime > 0) { pos[curKey] = aud.currentTime; posAt[curKey] = Date.now(); }
+    curKey = k; store.set('last:' + book().id, k); volTab = c.vol.id;
+    if (autoplay) { touched = true; lastAt[book().id] = Date.now(); store.set('lastAt', lastAt); saveProgress(true); }
+    setMeta(c);
+    let start = at != null ? at : (done[k] ? 0 : (pos[k]||0));
+    if (c.dur && start > c.dur - 5) start = 0;
+    const seq = ++loadSeq;
+    const asrc = c.asrc || c.src;
+    aud.dataset.key = k; aud.dataset.ready = '0';
+    if (mode === 'video') { if (vid.getAttribute('src') !== c.src) vid.src = c.src; }
+    else if (vid.getAttribute('src')) { vid.pause(); vid.removeAttribute('src'); vid.load(); }
+    if (autoplay && aud.paused && aud.getAttribute('src')) {
+      // 画面を触った直後のうちに再生の許可を得ておく（読み込み後に自動で鳴らせるように）
+      aud.muted = true; aud.play().then(() => { if (aud.dataset.ready !== '1') aud.pause(); aud.muted = false; }).catch(() => { aud.muted = false; });
+    }
+    const pr = fetchAudio(asrc);
+    let ticker = null;
+    if (pr.progress < 1) {
+      spinner(true, '');
+      ticker = setInterval(() => { if (seq === loadSeq) spinner(true, pr.progress > 0 ? '読み込み中 ' + Math.round(pr.progress * 100) + '%' : ''); }, 300);
+    }
+    pr.then(url => {
+      clearInterval(ticker);
+      if (seq !== loadSeq) return;
+      spinner(false); say('');
+      const go = () => {
+        aud.removeEventListener('loadedmetadata', go);
+        if (seq !== loadSeq) return;
+        try { aud.currentTime = start; } catch(e){}
+        aud.dataset.ready = '1'; aud.playbackRate = rate; aud.muted = false;
+        if (autoplay) aud.play().catch(playErr); else aud.pause();
+        syncVideo(true); updateTime(); paintPlay();
+        const n = neighbor(k, 1); if (n) fetchAudio(n.asrc || n.src).catch(()=>{});
+      };
+      if (aud.getAttribute('src') === url && aud.readyState >= 1) go();
+      else { aud.addEventListener('loadedmetadata', go); aud.src = url; aud.load(); }
+    }).catch(e => {
+      clearInterval(ticker); spinner(false);
+      if (seq === loadSeq) say('音声を読み込めませんでした（' + e.message + '）。通信状況を確認して、もう一度選んでください。', true);
+    });
+    renderList(); updateTime(); paintPlay(); scrollListToCurrent();
+  }
+  function step(d){ const n = curKey && neighbor(curKey, d); if (n) load(keyOf(n), true, 0); }
+  function toggle(){
+    if (!curKey) { const f = playable()[0]; if (f) load(keyOf(f), true); return; }
+    if (aud.dataset.ready !== '1') { load(curKey, true); return; }
+    if (aud.paused) aud.play().catch(playErr); else aud.pause();
+  }
+  function skip(s){ if (aud.dataset.ready !== '1') return; aud.currentTime = Math.max(0, Math.min((aud.duration||0) - 1, aud.currentTime + s)); syncVideo(true); updateTime(); }
+
+  function setMode(m){
+    if (m === mode) return;
+    mode = m; store.set('mode', m); applyMode();
+    const c = curKey && byKey(curKey);
+    if (mode === 'video' && c) { vid.src = c.src; vid.addEventListener('loadedmetadata', () => syncVideo(true), {once: true}); }
+    if (mode === 'audio') { vid.pause(); vid.removeAttribute('src'); vid.load(); }
+  }
+  function applyMode(){
+    $('audiocard').hidden = mode !== 'audio';
+    vid.hidden = mode === 'audio';
+    $('cAudio').setAttribute('aria-pressed', mode === 'audio');
+  }
+
+  function updateTime(){
+    const c = curKey && byKey(curKey);
+    const d = (aud.duration && isFinite(aud.duration)) ? aud.duration : (c ? c.dur : 0);
+    const t = (aud.dataset.ready === '1' ? aud.currentTime : 0) || (c ? (pos[curKey]||0) : 0);
+    if (!seeking) $('tCur').textContent = fmt(t);
+    $('tDur').textContent = fmt(d);
+    const p = d ? t / d : 0;
+    $('barFill').style.width = (p * 100) + '%';
+    if (!seeking) { $('seek').value = Math.round(p * 1000); $('seek').style.setProperty('--p', (p * 100) + '%'); }
+    if ('mediaSession' in navigator && d && navigator.mediaSession.setPositionState) {
+      try { navigator.mediaSession.setPositionState({duration: d, playbackRate: rate, position: Math.min(t, d)}); } catch(e){}
+    }
+  }
+  function paintPlay(){
+    const playing = !aud.paused;
+    $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>' : '<path d="M8 5v14l11-7z"/>';
+    $('bPlay').setAttribute('aria-label', playing ? '一時停止' : '再生');
+    $('bPrev').disabled = !curKey || !neighbor(curKey, -1);
+    $('bNext').disabled = !curKey || !neighbor(curKey, 1);
+    if ('mediaSession' in navigator) { try { navigator.mediaSession.playbackState = playing ? 'playing' : 'paused'; } catch(e){} }
+  }
+
+  // ── 視聴位置の保存（端末＋アカウント） ──────────────────────
+  let savedAt = store.get('savedAt', 0);
+  const cloud = { ref: null, ready: false, writing: false, dirty: false, lastWrite: 0, pulling: false, fail: 0 };
+  function persistLocal(){
+    store.set('pos', pos); store.set('posAt', posAt); store.set('done', done); store.set('lastAt', lastAt); store.set('savedAt', savedAt);
+  }
+  function snapshotState(){
+    const last = {}; LIB.forEach(b => { const v = store.get('last:' + b.id, null); if (v) last[b.id] = v; });
+    return { v: 2, pos, posAt, done, last, lastAt, rate, mode, autoNext, savedAt };
+  }
+  function saveProgress(important){
+    if (curKey && aud.dataset.key === curKey && aud.dataset.ready === '1' && aud.currentTime > 0 && Math.abs((pos[curKey] || 0) - aud.currentTime) > 1) {
+      pos[curKey] = aud.currentTime; posAt[curKey] = Date.now();
+    }
+    savedAt = Date.now(); persistLocal();
+    if (important || Date.now() - cloud.lastWrite > 20000) writeCloud();
+  }
+  async function writeCloud(){
+    if (!cloud.ref || !cloud.ready) return;   // クラウドの記録を読み終えるまでは書かない（空の状態で上書きしない）
+    if (cloud.writing) { cloud.dirty = true; return; }
+    cloud.writing = true; cloud.lastWrite = Date.now();
+    try { await cloud.ref.set(JSON.parse(JSON.stringify(snapshotState()))); cloud.fail = 0; }
+    catch(e) { if (++cloud.fail === 3) say('視聴位置をアカウントに保存できませんでした。通信状態を確認してください。', true); }
+    cloud.writing = false;
+    if (cloud.dirty) { cloud.dirty = false; writeCloud(); }
+  }
+  // 端末とクラウドの記録を「章ごとに新しい方」で統合する
+  function merge(d){
+    let changed = false, ahead = false;
+    const base = d.savedAt || 0;
+    const cPos = d.pos || {}, cAt = d.posAt || {}, cDone = d.done || {};
+    Object.keys(cPos).forEach(k => {
+      const t = cAt[k] || base;
+      if (t > (posAt[k] || 0)) { if (pos[k] !== cPos[k]) changed = true; pos[k] = cPos[k]; posAt[k] = t; }
+    });
+    Object.keys(pos).forEach(k => { if (!(k in cPos) || (posAt[k] || 0) > (cAt[k] || base)) ahead = true; });
+    Object.keys(cDone).forEach(k => { if (cDone[k] && !done[k]) { done[k] = true; changed = true; } });
+    Object.keys(done).forEach(k => { if (done[k] && !cDone[k]) ahead = true; });
+    const cLast = d.last || {}, cLastAt = d.lastAt || {};
+    Object.keys(cLast).forEach(b => {
+      const t = cLastAt[b] || base;
+      if (t > (lastAt[b] || 0)) { if (store.get('last:' + b, null) !== cLast[b]) changed = true; store.set('last:' + b, cLast[b]); lastAt[b] = t; }
+    });
+    LIB.forEach(b => { if ((lastAt[b.id] || 0) > (cLastAt[b.id] || (cLast[b.id] ? base : 0))) ahead = true; });
+    persistLocal();
+    return { changed, ahead };
+  }
+  async function pullCloud(){
+    if (!cloud.ref || cloud.pulling) return false;
+    cloud.pulling = true;
+    try {
+      const snap = await cloud.ref.get();
+      const d = snap.exists ? snap.data() : null;
+      const r = d ? merge(d) : { changed: false, ahead: true };
+      cloud.ready = true;
+      if (r.changed) { if (!touched && aud.paused) restore(); renderList(); updateTime(); }
+      if (r.ahead) writeCloud();
+      return true;
+    } catch(e) { return false; }
+    finally { cloud.pulling = false; }
+  }
+  async function initCloud(tries){
+    tries = tries || 0;
+    let ok = false;
+    try {
+      if (window.claude && window.claude.use) {
+        if (!cloud.ref) {
+          const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+          const uid = user && await user.id();
+          if (db && uid) cloud.ref = db.doc('data/users/' + uid + '/progress');
+        }
+        if (cloud.ref) ok = await pullCloud();
+      }
+    } catch(e) {}
+    if (!ok && tries < 10) setTimeout(() => initCloud(tries + 1), Math.min(10000, 1000 * (tries + 1)));
+  }
+
+  // ── 音声のイベント ─────────────────────────────────────
+  let lastSave = 0;
+  aud.addEventListener('timeupdate', () => {
+    updateTime(); syncVideo(false);
+    const now = Date.now();
+    if (curKey && now - lastSave > 4000) { lastSave = now; saveProgress(false); }
+  });
+  aud.addEventListener('play', () => { touched = true; paintPlay(); syncVideo(true); kickUI(); });
+  aud.addEventListener('pause', () => { paintPlay(); syncVideo(false); if (curKey && aud.dataset.ready === '1') { saveProgress(true); renderList(); } showUI(true); });
+  aud.addEventListener('seeked', () => syncVideo(true));
+  aud.addEventListener('ended', () => {
+    aud.dataset.ready = '0'; done[curKey] = true; pos[curKey] = 0; posAt[curKey] = Date.now(); saveProgress(true);
+    if (autoNext && neighbor(curKey, 1)) step(1); else { renderList(); paintPlay(); showUI(true); }
+  });
+  aud.addEventListener('waiting', () => { if (aud.dataset.ready === '1') spinner(true); });
+  aud.addEventListener('playing', () => spinner(false));
+  aud.addEventListener('error', () => {
+    if (!aud.getAttribute('src')) return;
+    say(window.claude ? '再生できませんでした。iPhoneの場合は、Safariの「サイト越えトラッキングを防ぐ」がオフか確認してください。' : '再生できませんでした。通信状態を確認して、もう一度お試しください。', true);
+  });
+  vid.addEventListener('loadeddata', () => syncVideo(true));
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { if (!vid.paused && !ext()) { internalPause = Date.now(); vid.pause(); } if (curKey) saveProgress(true); }
+    else { syncVideo(true); if (cloud.ready && aud.paused) pullCloud(); }
+  });
+  window.addEventListener('pagehide', () => { if (curKey) saveProgress(true); });
+
+  // ── 動画の上の操作（タップで表示、再生中は3秒で消える） ─────────
+  let uiTimer = null;
+  function showUI(stay){
+    screenEl.classList.add('showui'); clearTimeout(uiTimer);
+    if (!stay && !aud.paused) uiTimer = setTimeout(hideUI, 3000);
+  }
+  function hideUI(){ clearTimeout(uiTimer); if (!aud.paused && !seeking) screenEl.classList.remove('showui'); }
+  function kickUI(){ if (screenEl.classList.contains('showui')) showUI(); }
+  let lastTap = { t: 0, side: null, n: 0 }, singleT = null, ripT = null;
+  function ripple(side, sec){
+    const r = side < 0 ? $('ripL') : $('ripR'), o = side < 0 ? $('ripR') : $('ripL');
+    (side < 0 ? $('ripLt') : $('ripRt')).textContent = sec + '秒';
+    o.classList.remove('on'); r.classList.add('on'); clearTimeout(ripT); ripT = setTimeout(() => r.classList.remove('on'), 650);
+  }
+  let ptrType = 'touch';
+  $('tapzone').addEventListener('pointerdown', e => { ptrType = e.pointerType || 'touch'; });
+  document.querySelectorAll('#tapzone .tz').forEach(z => z.addEventListener('click', () => {
+    const side = +z.dataset.side, now = Date.now();
+    if (ptrType === 'mouse') { toggle(); showUI(); return; }   // パソコン：クリックで再生／一時停止（ダブルクリックで全画面）
+    if (side !== 0 && lastTap.side === side && now - lastTap.t < 380) {
+      clearTimeout(singleT); lastTap.n += 1; lastTap.t = now;
+      skip(side * 10); ripple(side, lastTap.n * 10); hideUI();
+      return;
+    }
+    lastTap = { t: now, side, n: 0 };
+    clearTimeout(singleT);
+    singleT = setTimeout(() => {
+      if (!screenEl.classList.contains('showui')) showUI();
+      else if (!aud.paused) { clearTimeout(uiTimer); screenEl.classList.remove('showui'); }
+    }, side === 0 ? 0 : 280);
+  }));
+  screenEl.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') showUI(); });   // スマホのタップで出る疑似マウス移動は無視
+  screenEl.addEventListener('dblclick', e => { if (e.target.closest('button,input')) return; if (window.matchMedia('(hover:hover)').matches) toggleFS(); });
+  $('bPlay').onclick = () => { toggle(); showUI(); };
+  $('bPrev').onclick = () => { if (aud.currentTime > 5 && aud.dataset.ready === '1') { aud.currentTime = 0; syncVideo(true); } else step(-1); showUI(); };
+  $('bNext').onclick = () => { step(1); showUI(); };
+  $('seek').addEventListener('input', () => {
+    seeking = true; showUI(true);
+    const d = aud.duration || 0, v = $('seek').value / 1000;
+    $('seek').style.setProperty('--p', (v * 100) + '%'); $('tCur').textContent = fmt(v * d);
+  });
+  $('seek').addEventListener('change', () => {
+    if (aud.duration && aud.dataset.ready === '1') aud.currentTime = $('seek').value / 1000 * aud.duration;
+    seeking = false; syncVideo(true); updateTime(); showUI();
+  });
+
+  // ── 全画面（縦向きの画面では映像を回して横いっぱいに） ─────────
+  let rotPref = null;
+  function isFS(){ return screenEl.classList.contains('fs'); }
+  async function enterFS(){
+    // 全画面を押したら、縦向きのままでも映像を自動で横向きに回して画面いっぱいに出す（iPhoneの回転ロックを外さなくてよい）
+    screenEl.classList.add('fs'); document.documentElement.classList.add('fslock');
+    const isPhone = /iPhone|iPod|Android.*Mobile/.test(navigator.userAgent);
+    if (!isPhone) {
+      try { if (screenEl.requestFullscreen) await screenEl.requestFullscreen({navigationUI: 'hide'}); else if (screenEl.webkitRequestFullscreen) screenEl.webkitRequestFullscreen(); } catch(e){}
+      try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape'); } catch(e){}
+    }
+    paintFS(); showUI(); syncVideo(true);
+  }
+  async function exitFS(){
+    screenEl.classList.remove('fs'); document.documentElement.classList.remove('fslock'); rotPref = null;
+    try { if (document.fullscreenElement && document.exitFullscreen) await document.exitFullscreen(); else if (document.webkitFullscreenElement && document.webkitExitFullscreen) document.webkitExitFullscreen(); } catch(e){}
+    try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch(e){}
+    paintFS(); showUI();
+  }
+  function toggleFS(){ isFS() ? exitFS() : enterFS(); }
+  function layoutFS(){
+    const el = screenEl, W = window.innerWidth, H = window.innerHeight;
+    const portrait = H > W && !(document.fullscreenElement || document.webkitFullscreenElement);
+    $('bRotate').hidden = !isFS() || !portrait;
+    const rot = isFS() && portrait && (rotPref === null ? true : rotPref);
+    if (rot) {
+      Object.assign(el.style, { top: '0px', left: '0px', right: 'auto', bottom: 'auto', width: H + 'px', height: W + 'px', transformOrigin: '0 0', transform: 'translate(' + W + 'px,0) rotate(90deg)' });
+      el.classList.add('rot');
+    } else {
+      ['top','left','right','bottom','width','height','transformOrigin','transform'].forEach(k => el.style[k] = '');
+      el.classList.remove('rot');
+    }
+  }
+  function paintFS(){
+    layoutFS();
+    $('bFS').setAttribute('aria-label', isFS() ? '全画面を終了' : '全画面');
+    $('fsIcon').innerHTML = isFS()
+      ? '<path d="M8 5h2v5H5V8h3zm6 0h2v3h3v2h-5zM5 14h5v5H8v-3H5zm9 0h5v2h-3v3h-2z"/>'
+      : '<path d="M5 10V5h5v2H7v3zm9-5h5v5h-2V7h-3zM5 14h2v3h3v2H5zm12 3v-3h2v5h-5v-2z"/>';
+  }
+  window.addEventListener('resize', layoutFS);
+  ['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => document.addEventListener(ev, () => {
+    if (!(document.fullscreenElement || document.webkitFullscreenElement) && isFS()) { screenEl.classList.remove('fs'); document.documentElement.classList.remove('fslock'); }
+    paintFS();
+  }));
+  $('bFS').onclick = () => toggleFS();
+  $('cFS').onclick = () => enterFS();
+  $('bRotate').onclick = () => { rotPref = !screenEl.classList.contains('rot'); layoutFS(); showUI(); };
+
+  // ── 設定シート（再生速度・音声のみ・自動再生） ───────────────
+  const ICON = {
+    rate: '<svg viewBox="0 0 24 24"><path d="M12 4a9 9 0 1 0 9 9h-2a7 7 0 1 1-7-7zm1 2v6.6l4.2 2.4 1-1.7-3.2-1.9V6z"/></svg>',
+    audio: '<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0-9 9v6a3 3 0 0 0 3 3h2v-8H5v-1a7 7 0 0 1 14 0v1h-3v8h2a3 3 0 0 0 3-3v-6a9 9 0 0 0-9-9z"/></svg>',
+    auto: '<svg viewBox="0 0 24 24"><path d="M4 6h11v2H4zm0 5h11v2H4zm0 5h7v2H4zm12-1v6l5-3z"/></svg>',
+    back: '<svg viewBox="0 0 24 24"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>'
+  };
+  function openSheet(view){
+    const sh = $('sheet'), sc = $('scrim');
+    sh.classList.toggle('fsmode', isFS()); sc.classList.toggle('fsmode', isFS());
+    if (view === 'rate') {
+      sh.innerHTML = '<div class="grab"></div><div class="shead"><button id="shBack" aria-label="戻る">' + ICON.back + '</button>再生速度</div>' +
+        RATES.map(r => '<button class="srow' + (r === rate ? ' sel' : '') + '" data-r="' + r + '">' + (r === 1 ? '標準' : rateText(r)) + '</button>').join('');
+      sh.querySelector('#shBack').onclick = () => openSheet();
+      sh.querySelectorAll('[data-r]').forEach(b => b.onclick = () => { setRate(+b.dataset.r); closeSheet(); });
+    } else {
+      sh.innerHTML = '<div class="grab"></div>' +
+        '<button class="srow" id="sRate">' + ICON.rate + '再生速度<span class="v">' + (rate === 1 ? '標準' : rateText(rate)) + '</span></button>' +
+        '<button class="srow" id="sAudio">' + ICON.audio + '音声のみ<span class="v">' + (mode === 'audio' ? 'オン' : 'オフ') + '</span></button>' +
+        '<button class="srow" id="sAuto">' + ICON.auto + '自動再生<span class="v">' + (autoNext ? 'オン' : 'オフ') + '</span></button>';
+      sh.querySelector('#sRate').onclick = () => openSheet('rate');
+      sh.querySelector('#sAudio').onclick = () => { setMode(mode === 'audio' ? 'video' : 'audio'); openSheet(); };
+      sh.querySelector('#sAuto').onclick = () => { setAuto(!autoNext); openSheet(); };
+    }
+    sh.hidden = false; sc.hidden = false;
+    const f = sh.querySelector('button'); if (f) f.focus({preventScroll: true});
+  }
+  function closeSheet(){ $('sheet').hidden = true; $('scrim').hidden = true; showUI(); }
+  $('scrim').onclick = closeSheet;
+  $('bSettings').onclick = () => openSheet();
+  function setRate(r){ rate = r; store.set('rate', r); aud.playbackRate = r; vid.playbackRate = r; $('cRateT').textContent = rateText(r); updateTime(); }
+  function setAuto(v){ autoNext = v; store.set('autoNext', v); $('cAuto').setAttribute('aria-pressed', v); }
+  $('cRate').onclick = () => openSheet('rate');
+  $('cAudio').onclick = () => setMode(mode === 'audio' ? 'video' : 'audio');
+  $('cAuto').onclick = () => setAuto(!autoNext);
+  $('desc').onclick = () => $('desc').classList.toggle('open');
+
+  // ── キーボード（パソコン） ────────────────────────────────
+  document.addEventListener('keydown', e => {
+    if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName) && e.target.type !== 'range') return;
+    if (e.key === 'Escape') { if (!$('sheet').hidden) closeSheet(); else if (isFS()) exitFS(); }
+    else if (e.key === 'f' || e.key === 'F') toggleFS();
+    else if (e.key === ' ' || e.key === 'k') { e.preventDefault(); toggle(); showUI(); }
+    else if (e.key === 'j' || e.key === 'ArrowLeft') { e.preventDefault(); const s = e.key === 'j' ? 10 : 5; skip(-s); ripple(-1, s); }
+    else if (e.key === 'l' || e.key === 'ArrowRight') { e.preventDefault(); const s = e.key === 'l' ? 10 : 5; skip(s); ripple(1, s); }
+    else if (e.key === 'N' && e.shiftKey) step(1);
+    else if (e.key === 'P' && e.shiftKey) step(-1);
+  });
+
+  // ── ロック画面の操作 ─────────────────────────────────────
+  if ('mediaSession' in navigator) {
+    const ms = navigator.mediaSession, set = (a, f) => { try { ms.setActionHandler(a, f); } catch(e){} };
+    set('play', () => aud.play().catch(playErr)); set('pause', () => aud.pause());
+    set('previoustrack', () => step(-1)); set('nexttrack', () => step(1));
+    set('seekbackward', d => skip(-((d && d.seekOffset) || 10))); set('seekforward', d => skip((d && d.seekOffset) || 10));
+    set('seekto', d => { if (d && d.seekTime != null && aud.dataset.ready === '1') { aud.currentTime = d.seekTime; syncVideo(true); } });
+  }
+
+  // ── 小窓で再生（ピクチャー・イン・ピクチャー） ───────────────
+  // 音は今まで通り音声ファイルから流し、小窓には映像だけを出す。小窓の再生・停止・早送りは音声にも反映する。
+  const pipOK = !!((document.pictureInPictureEnabled && vid.requestPictureInPicture) ||
+    (vid.webkitSupportsPresentationMode && vid.webkitSupportsPresentationMode('picture-in-picture')));
+  $('bPip').hidden = !pipOK; $('cPip').hidden = !pipOK;
+  function setPip(on){ pip = on; $('cPip').setAttribute('aria-pressed', on); if (on) syncVideo(true); }
+  async function togglePip(){
+    try {
+      if (pip) {
+        if (document.pictureInPictureElement) await document.exitPictureInPicture();
+        else if (vid.webkitSetPresentationMode) vid.webkitSetPresentationMode('inline');
+        return;
+      }
+      if (mode !== 'video') setMode('video');
+      if (!curKey) { const f = playable()[0]; if (f) load(keyOf(f), true); }
+      if (aud.paused && aud.dataset.ready === '1') aud.play().catch(playErr);
+      if (vid.readyState < 1) await new Promise(r => vid.addEventListener('loadedmetadata', r, {once: true}));
+      syncVideo(true);
+      if (vid.requestPictureInPicture && document.pictureInPictureEnabled) await vid.requestPictureInPicture();
+      else if (vid.webkitSetPresentationMode) vid.webkitSetPresentationMode('picture-in-picture');
+    } catch(e) { say('小窓で再生できませんでした（' + (e && e.name || '') + '）。動画を再生してから、もう一度押してください。', true); }
+  }
+  vid.addEventListener('enterpictureinpicture', () => setPip(true));
+  vid.addEventListener('leavepictureinpicture', () => { setPip(false); syncVideo(true); });
+  vid.addEventListener('webkitpresentationmodechanged', () => {
+    nativeFS = vid.webkitPresentationMode === 'fullscreen';
+    setPip(vid.webkitPresentationMode === 'picture-in-picture'); syncVideo(true);
+  });
+  vid.addEventListener('webkitbeginfullscreen', () => { nativeFS = true; syncVideo(true); });
+  vid.addEventListener('webkitendfullscreen', () => { nativeFS = false; syncVideo(true); });
+  vid.addEventListener('volumechange', () => { if (!vid.muted) vid.muted = true; });   // 音は音声ファイル側から出すので、映像は常に消音
+  // 小窓のボタン操作（再生・停止・送り）を音声にも反映
+  vid.addEventListener('pause', () => { if (ext() && Date.now() - internalPause > 400 && !aud.paused && !vid.ended) aud.pause(); });
+  vid.addEventListener('play', () => { if (ext() && aud.paused && aud.dataset.ready === '1') aud.play().catch(()=>{}); });
+  vid.addEventListener('seeked', () => {
+    if (ext() && Date.now() - internalSeek > 600 && aud.dataset.ready === '1' && Math.abs(vid.currentTime - aud.currentTime) > 1) aud.currentTime = vid.currentTime;
+  });
+  $('bPip').onclick = () => { togglePip(); showUI(); };
+  $('cPip').onclick = () => togglePip();
+
+  function restore(){
+    const last = store.get('last:' + book().id, null);
+    const c = (last && byKey(last) && byKey(last).src) ? byKey(last) : playable()[0];
+    if (c) load(keyOf(c), false);
+  }
+
+  $('cRateT').textContent = rateText(rate); $('cAuto').setAttribute('aria-pressed', autoNext);
+  // 引っ越し前の視聴記録（単独版の初回だけ取り込む）
+  try { const SEED = JSON.parse(document.getElementById('seed').textContent || 'null'); if (SEED && !store.get('seeded', false)) { merge(SEED); store.set('seeded', true); } } catch(e) {}
+  applyMode(); restore(); paintPlay(); paintFS(); showUI(true); initCloud();
+})();
+</script>
