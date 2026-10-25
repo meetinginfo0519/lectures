@@ -101,6 +101,11 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .screen.fs{position:fixed;inset:0;z-index:60;aspect-ratio:auto;max-width:none;width:100%;height:100%;border-radius:0!important;
   padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
 html.fslock,html.fslock body{overflow:hidden}
+html.fslock,html.fslock body{background:#000}
+/* iPhoneのノッチ・ステータスバー・ホームバーに映像や操作がかからないよう、安全な範囲に収める */
+.screen.fs{box-shadow:0 0 0 100vmax #000}
+.screen.fs:not(.rot){top:env(safe-area-inset-top,0px);bottom:env(safe-area-inset-bottom,0px);left:env(safe-area-inset-left,0px);right:env(safe-area-inset-right,0px);width:auto;height:auto}
+#safeProbe{position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
 /* ── 動画の下 ── */
 .info{padding:12px max(12px,env(safe-area-inset-right,0px)) 4px max(12px,env(safe-area-inset-left,0px));display:grid;gap:10px}
 .info h1{margin:0;font-size:18px;line-height:1.4;font-weight:700;text-wrap:balance}
@@ -617,7 +622,11 @@ html.fslock,html.fslock body{overflow:hidden}
     $('bRotate').hidden = !isFS() || !portrait;
     const rot = isFS() && portrait && (rotPref === null ? true : rotPref);
     if (rot) {
-      Object.assign(el.style, { top: '0px', left: '0px', right: 'auto', bottom: 'auto', width: H + 'px', height: W + 'px', transformOrigin: '0 0', transform: 'translate(' + W + 'px,0) rotate(90deg)' });
+      // 縦持ちの上（ステータスバー）と下（ホームバー）は、横向き表示では左右の端になる。そこを避けて配置する
+      let pr = document.getElementById('safeProbe');
+      if (!pr) { pr = document.createElement('div'); pr.id = 'safeProbe'; document.body.appendChild(pr); }
+      const cs = getComputedStyle(pr), st = parseFloat(cs.paddingTop) || 0, sb = parseFloat(cs.paddingBottom) || 0;
+      Object.assign(el.style, { top: '0px', left: '0px', right: 'auto', bottom: 'auto', width: (H - st - sb) + 'px', height: W + 'px', transformOrigin: '0 0', transform: 'translate(' + W + 'px,' + st + 'px) rotate(90deg)' });
       el.classList.add('rot');
     } else {
       ['top','left','right','bottom','width','height','transformOrigin','transform'].forEach(k => el.style[k] = '');
